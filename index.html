@@ -58,10 +58,17 @@
                         </p>
                         <pre><code data-trim>
 let count = try!(r.read(buf));
+
 let foo = bytes!("hello");
+
 include_file!("some_file.rs");
+
 println!("Hello, {}", "world");
+
 #[deriving(Show, Eq)]
+struct Foo {
+    i: int
+}
                         </code></pre>
                     </section>
 
