@@ -191,6 +191,19 @@ pub enum SyntaxExtension {
                     <section>
                         <h2>Basic idea</h2>
                         <p>
+                            It's simpler for <code>macro_rules!</code>
+                            extensions.
+                        </p>
+                        <pre><code data-trim>
+#[macro_export]
+macro_rules! my_macro(() =&gt; (1))
+                        </code></pre>
+
+                    </section>
+
+                    <section>
+                        <h2>Basic idea</h2>
+                        <p>
                             Client code annotates the crate import to tell the
                             compiler to load syntax extensions from it.
                         </p>
