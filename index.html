@@ -36,42 +36,45 @@
             <div class="slides">
                 <section>
                     <h1>Syntax Extensions</h1>
-                    <h3>What, Why, and How</h3>
                     <p>
                         <small>Steven Fackler / <a href="https://github.com/sfackler">sfackler</a></small>
                     </p>
                 </section>
 
                 <section>
+                    <h2>Overview</h2>
+                    <ul>
+                        <li>What's a syntax extension?</li>
+                        <li>What's this externally loadable thing?</li>
+                        <li>How does it work?</li>
+                    </ul>
+                </section>
+
+                <section>
                     <section>
-                        <h2>What?</h2>
+                        <h2>What's a syntax extension?</h2>
                         <p>
                             Macros!
                         </p>
                         <pre><code data-trim>
 let count = try!(r.read(buf));
-// Expands to...
-let count = match r.read_buf(buf) {
-    Ok(ok) =&gt; ok,
-    Err(err) =&gt; return Err(err)
-};
-
 let foo = bytes!("hello");
-// Expands to...
-let foo = &[104u8, 101u8, 108u8, 108u8, 111u8];
+include_file!("some_file.rs");
+println!("Hello, {}", "world");
+#[deriving(Show, Eq)]
                         </code></pre>
                     </section>
 
                     <section>
-                        <h2>Lexical</h2>
+                        <h2>Not quite like C macros</h2>
                         <p>
-                            C's preprocessor
+                            C's preprocessor operates on a lexical level.
                         </p>
                         <p>
-                            Very simple, operates on tokens - think <code>sed</code>
+                            Think find and replace - like <code>sed</code>.
                         </p>
                         <pre><code data-trim>
-#define MIN(a, b) ((a) &lt; (b) ? (a) : (b))
+#define MIN(a, b) (((a) &lt; (b)) ? (a) : (b))
 #define struct union
 #define DO_A_THING(t) do { \
         do_blah(t); \
@@ -81,51 +84,57 @@ let foo = &[104u8, 101u8, 108u8, 108u8, 111u8];
                     </section>
 
                     <section>
-                        <h2>Syntactic</h2>
-                        <p>
-                            Lisps and Rust!
-                        </p>
-                        <p>
-                            Operates on the abstract syntax tree (AST)
-                        </p>
-                        <pre><code data-trim>
-macro_rules! try(
-    ($e:expr) =&gt; (
-        match $e {
-            Ok(e) =&gt; e,
-            Err(e) =&gt; return Err(e),
-        }
-    )
-);
-                        </code></pre>
+                        <h2>Syntax extensions operate on the AST</h2>
+                        <blockquote cite="http://en.wikipedia.org/wiki/Abstract_syntax_tree">
+                            &ldquo;An abstract syntax tree (AST), or just
+                            syntax tree, is a tree representation of the
+                            abstract syntactic structure of source code written
+                            in a programming language.&rdquo;
+                        </blockquote>
                     </section>
-                </section>
 
-                <section>
                     <section>
                         <h2>Why?</h2>
                         <p>
                             Macros can do things that normal code simply can't.
                         </p>
-                        <ul>
-                            <li>Return from the invoking function</li>
-                            <li>(Almost) freeform syntax</li>
-                            <li>Do work at compile time instead of run time!</li>
-                        </ul>
                     </section>
 
                     <section>
-                        <h2>Why not <code>macro_rules</code>?</h2>
-                        <p>
-                            It's not powerful enough!
-                        </p>
-                        <p>
-                            Syntax extensions can run <em>arbitrary code</em>
-                            at compile time.
-                        </p>
-                        <p>
-                            Take <code>println!</code> for example:
-                        </p>
+                        <h2>Why?</h2>
+                        <p>Return from the invoking function</p>
+                        <pre><code data-trim>
+macro_rules! try(
+    ($e:expr) =&gt; (
+        match $e {
+            Ok(e) =&gt; e,
+            Err(e) =&gt; return Err(e)
+        }
+    )
+)
+
+fn read_foo(r: &amp;mut Reader) -&gt; Result&lt;Foo, IoError&gt; {
+    let bar = try!(r.read_be_i32());
+    let baz = try!(r.read_bytes(10));
+    Ok(Foo { bar: bar, baz: baz })
+}
+                        </code></pre>
+                    </section>
+
+                    <section>
+                        <h2>Why?</h2>
+                            <p>(Almost) freeform syntax</p>
+                            <pre><code data-trim>
+let map = make_map!(It should have type std::hashmap::HashMap and contain
+                    "foo" =&gt; 1,
+                    "bar" =&gt; 2,
+                    "baz" =&gt; 3);
+                            </code></pre>
+                    </section>
+
+                    <section>
+                        <h2>Why?</h2>
+                        <p>Do work at compile time instead of run time!</p>
                         <pre><code data-trim>
 test.rs:2:35: 2:37 error: argument never used
 test.rs:2     println!("hello {}", "world", 10);
@@ -136,27 +145,76 @@ test.rs:2     println!("hello {}", "world", 10);
 
                 <section>
                     <section>
-                        <h2>How?</h2>
+                        <h2>How does it work?</h2>
                         <p>
                             Syntax extensions don't have to be defined in the
                             compiler anymore! (<a href="https://github.com/mozilla/rust/issues/11151">#11151</a>)
                         </p>
                         <p>
-                            They can be implemented in libraries that the compiler
-                            loads at runtime.
+                            They can be implemented in libraries that the
+                            compiler can load into itself.
                         </p>
+                    </section>
+
+                    <section>
+                        <h2>Basic idea</h2>
+                        <p>
+                            Libraries define a <code>macro_registrar</code>
+                            function to register syntax extensions with the
+                            compiler.
+                        </p>
+                        <pre><code data-trim>
+#[macro_registrar]
+pub fn registrar(cb: |ast::Name, ext::base::SyntaxExtension|) {
+    ...
+}
+                        </code></pre>
+                        <pre><code data-trim>
+pub enum SyntaxExtension {
+    // e.g. #[deriving(...)]
+    ItemDecorator(...),
+    // e.g. try!(...)
+    NormalTT(...),
+    // e.g. macro_rules! foo(...)
+    IdentTT(...),
+}
+                        </code></pre>
+                    </section>
+
+                    <section>
+                        <h2>Basic idea</h2>
+                        <p>
+                            Client code annotates the crate import to tell the
+                            compiler to load syntax extensions from it.
+                        </p>
+                        <pre><code data-trim>
+#[feature(phase)];
+
+#[phase(syntax)]
+extern crate my_macros;
+
+fn main() {
+    let _x = my_macro!();
+}
+                        </code></pre>
                     </section>
 
                     <section>
                         <h2>Example!</h2>
                         <p>
                             Let's write a syntax extension that creates sorted
-                            arrays:
+                            arrays of strings:
                         </p>
                         <pre><code data-trim>
-let foo = sort!("z", "hello", "a", "");
-// Expands to...
-let foo = ["", "a", "hello", "z"];
+#[feature(phase)];
+
+#[phase(syntax)]
+extern crate sort;
+
+fn main() {
+    assert_eq!(sort!("z", "", "hello", "a"),
+               ["", "a", "hello", "z"]);
+}
                         </code></pre>
                     </section>
 
@@ -169,10 +227,6 @@ let foo = ["", "a", "hello", "z"];
                 <section>
                     <h2>Caveats</h2>
                     <ul>
-                        <li>
-                            Syntax extension libraries depend on libsyntax -
-                            avoid creating a runtime dependency on them!
-                        </li>
                         <li>
                             Working with the AST can be extraordinarily verbose
                             - try creating an <code>impl</code> block via AST
