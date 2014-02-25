@@ -4,9 +4,9 @@
     <head>
         <meta charset="utf-8">
 
-        <title>Syntax Extensions in Rust</title>
+        <title>Procedural Macros in Rust</title>
 
-        <meta name="description" content="An overview of the syntax extension system in Rust">
+        <meta name="description" content="An overview of the procedural macro system in Rust">
         <meta name="author" content="Steven Fackler">
 
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -32,10 +32,9 @@
 
     <body>
         <div class="reveal">
-            <!-- Any section element inside of this container is displayed as a slide -->
             <div class="slides">
                 <section>
-                    <h1>Syntax Extensions</h1>
+                    <h1>Macros in Rust</h1>
                     <p>
                         <small>Steven Fackler / <a href="https://github.com/sfackler">sfackler</a></small>
                     </p>
@@ -44,7 +43,8 @@
                 <section>
                     <h2>Overview</h2>
                     <ul>
-                        <li>What's a syntax extension?</li>
+                        <li>What's a macro?</li>
+                        <li>Why use macros?</li>
                         <li>What's this externally loadable thing?</li>
                         <li>How does it work?</li>
                     </ul>
@@ -52,9 +52,9 @@
 
                 <section>
                     <section>
-                        <h2>What's a syntax extension?</h2>
+                        <h2>What's a macro?</h2>
                         <p>
-                            Macros!
+                            This stuff:
                         </p>
                         <pre><code data-trim>
 let count = try!(r.read(buf));
@@ -91,15 +91,33 @@ struct Foo {
                     </section>
 
                     <section>
-                        <h2>Syntax extensions operate on the AST</h2>
+                        <h2>Rust's macros operate on the AST</h2>
                         <blockquote cite="http://en.wikipedia.org/wiki/Abstract_syntax_tree">
                             &ldquo;An abstract syntax tree (AST), or just
                             syntax tree, is a tree representation of the
                             abstract syntactic structure of source code written
                             in a programming language.&rdquo;
                         </blockquote>
-                    </section>
+                        <pre><code data-trim>
+pub enum Expr_ {
+    ExprCall(@Expr, ~[@Expr]),
+    ExprMatch(@Expr, ~[Arm]),
+    ExprForLoop(@Pat, @Expr, P&lt;Block&gt;, Option&lt;Ident&gt;),
+    ...
+}
 
+pub enum Item_ {
+    ItemFn(P&lt;FnDecl&gt;, Purity, AbiSet, Generics, P&lt;Block&gt;),
+    ItemTrait(Generics, ~[TraitDef], ~[TraitMethod]),
+    ...
+}
+
+...
+                        </code></pre>
+                    </section>
+                </section>
+
+                <section>
                     <section>
                         <h2>Why?</h2>
                         <p>
@@ -132,7 +150,7 @@ fn read_foo(r: &amp;mut Reader) -&gt; Result&lt;Foo, IoError&gt; {
                         <h2>Why?</h2>
                             <p>(Almost) freeform syntax</p>
                             <pre><code data-trim>
-let map = make_map!(It should have type std::hashmap::HashMap and contain
+let map = make_map!(Start with collections::HashMap::new() and add
                     "foo" =&gt; 1,
                     "bar" =&gt; 2,
                     "baz" =&gt; 3);
